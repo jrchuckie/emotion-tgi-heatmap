@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>食品饮料赛道 Top 品牌情绪 TGI 热力图</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", sans-serif; background: #0f1117; color: #e8eaf0; min-height: 100vh; padding: 32px 20px 48px; }
+
+  .header { text-align: center; margin-bottom: 32px; }
+  .header h1 { font-size: 20px; font-weight: 700; color: #fff; letter-spacing: 0.4px; margin-bottom: 6px; }
+  .header .sub { font-size: 11px; color: #6b7280; line-height: 1.6; }
+
+  .legend { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 32px; flex-wrap: wrap; }
+  .legend-label { font-size: 11px; color: #9ca3af; }
+  .legend-bar { display: flex; height: 12px; border-radius: 4px; overflow: hidden; }
+  .legend-bar div { width: 36px; }
+  .legend-note { font-size: 11px; color: #4b5563; }
+
+  .section { margin-bottom: 48px; }
+  .section-title { font-size: 12px; font-weight: 600; color: #94a3b8; letter-spacing: 2.5px; text-transform: uppercase; margin-bottom: 14px; border-left: 3px solid #6366f1; padding-left: 10px; }
+
+  .heatmap-wrap { overflow-x: auto; border-radius: 12px; background: #15182280; border: 1px solid #2a2d3a; }
+  table { border-collapse: collapse; }
+  thead th { font-size: 11px; font-weight: 500; color: #9ca3af; padding: 10px 10px 8px; text-align: center; white-space: nowrap; border-bottom: 1px solid #2a2d3a; }
+  thead th.emo-col { text-align: left; padding-left: 16px; min-width: 90px; font-size: 11px; }
+  thead th.brand-th { min-width: 80px; }
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+  tbody td { padding: 7px 8px; text-align: center; border-bottom: 1px solid #1a1d2a; }
+  tbody td.emo-cell { text-align: left; padding-left: 16px; font-size: 12px; color: #cbd5e1; white-space: nowrap; font-weight: 500; border-right: 1px solid #2a2d3a; }
+  tbody tr:last-child td { border-bottom: none; }
+
+  .cell { display: inline-flex; align-items: center; justify-content: center; width: 58px; height: 30px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: default; transition: transform 0.12s; letter-spacing: 0.3px; }
+  .cell:hover { transform: scale(1.1); z-index: 10; position: relative; }
+
+  .footer-note { font-size: 11px; color: #374151; text-align: center; margin-top: 20px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>食品饮料赛道 · Top 品牌情绪 TGI 热力图</h1>
+  <div class="sub">
+    数据来源：小红书营销实验室 · red_lab.app_emotion_skill_df · dtm=20260523 · 笔记发布 ≥ 2024-01-01<br>
+    基准：食饮各赛道有品牌绑定笔记 · 仅展示正面情绪大类
+  </div>
+</div>
+
+<div class="legend">
+  <span class="legend-label">TGI 低</span>
+  <div class="legend-bar" id="legendBar"></div>
+  <span class="legend-label">TGI 高</span>
+  <span class="legend-note" style="margin-left:12px">TGI = 品牌情绪占比 ÷ 赛道基准占比 × 100 &nbsp;|&nbsp; ≥120 显著偏高 &nbsp;|&nbsp; ≥180 极度集中</span>
+</div>
+
+<div id="charts"></div>
+
+<div class="footer-note">品牌样本量 ≥ 200 条笔记 · 各情绪为情绪大类层级（基于35类体系）</div>
+
+<script>
+// 完整 TGI 数据（横轴=品牌 纵轴=情绪）
+const TGI_DATA = {"RIO":{"启迪感":155.5,"钦慕感":151.8,"希望感":128.1,"依赖感":123.0,"释放感":119.0,"爱意":115.3,"自我实现感":108.4,"快乐":94.1,"惊讶":79.0,"信任感":71.7,"谢意":65.5,"自在感":60.2},"a2":{"自在感":310.8,"信任感":250.9,"爱意":236.6,"谢意":212.1,"希望感":153.3,"释放感":103.7,"启迪感":100.1,"自我实现感":86.9,"钦慕感":80.1,"惊讶":69.1,"快乐":31.6,"依赖感":27.2},"三得利":{"自我实现感":332.5,"释放感":167.5,"启迪感":123.1,"希望感":112.6,"钦慕感":112.1,"快乐":105.7,"惊讶":77.7,"依赖感":65.1,"自在感":63.7,"信任感":63.1,"爱意":61.2,"谢意":53.6},"乐事":{"启迪感":183.2,"钦慕感":140.6,"希望感":134.9,"谢意":112.1,"惊讶":109.8,"释放感":105.1,"依赖感":102.3,"快乐":97.9,"自我实现感":84.2,"爱意":83.2,"信任感":51.6,"自在感":36.4},"五粮液":{"谢意":214.0,"希望感":193.9,"信任感":172.0,"启迪感":163.9,"爱意":133.4,"释放感":122.5,"惊讶":114.1,"钦慕感":106.1,"依赖感":92.2,"快乐":55.7,"自我实现感":50.7,"自在感":38.8},"伊利":{"谢意":147.1,"希望感":129.2,"信任感":125.2,"自在感":124.8,"惊讶":105.0,"自我实现感":103.8,"依赖感":95.7,"快乐":95.0,"爱意":93.1,"启迪感":85.0,"释放感":81.8,"钦慕感":74.2},"元气森林":{"钦慕感":154.0,"自我实现感":139.9,"快乐":117.2,"启迪感":115.5,"希望感":109.6,"释放感":104.6,"信任感":96.5,"依赖感":92.2,"惊讶":90.2,"自在感":88.8,"谢意":80.0,"爱意":59.1},"农夫山泉":{"自我实现感":252.6,"启迪感":175.4,"释放感":166.8,"自在感":120.1,"希望感":111.4,"钦慕感":107.9,"依赖感":100.2,"快乐":96.8,"惊讶":86.3,"信任感":86.0,"谢意":78.6,"爱意":73.4},"卫龙":{"钦慕感":131.1,"希望感":130.8,"释放感":126.0,"自我实现感":123.0,"启迪感":113.5,"依赖感":112.9,"快乐":109.7,"谢意":95.3,"惊讶":89.3,"爱意":70.8,"信任感":62.4,"自在感":19.6},"可口可乐":{"启迪感":200.8,"钦慕感":163.2,"希望感":146.8,"依赖感":119.4,"惊讶":119.0,"爱意":109.0,"释放感":106.4,"自我实现感":102.8,"谢意":84.5,"信任感":81.0,"自在感":80.8,"快乐":75.4},"安佳":{"自在感":337.8,"自我实现感":149.3,"信任感":113.8,"快乐":108.8,"惊讶":104.9,"希望感":93.0,"爱意":86.3,"钦慕感":65.8,"释放感":60.9,"启迪感":60.1,"依赖感":32.5,"谢意":30.1},"山姆会员商店":{"快乐":129.3,"信任感":124.4,"惊讶":115.5,"释放感":110.9,"自在感":89.6,"依赖感":64.6,"希望感":59.7,"爱意":57.7,"谢意":55.6,"自我实现感":46.8,"钦慕感":29.4,"启迪感":29.3},"旺旺":{"依赖感":197.6,"希望感":137.9,"谢意":126.5,"惊讶":115.3,"爱意":99.4,"释放感":93.4,"快乐":87.7,"钦慕感":80.0,"自我实现感":79.1,"启迪感":77.8,"自在感":59.8,"信任感":29.2},"星巴克":{"启迪感":143.1,"爱意":119.6,"希望感":106.0,"快乐":100.9,"惊讶":94.0,"释放感":89.9,"自我实现感":82.3,"钦慕感":80.2,"信任感":78.4,"依赖感":62.0,"谢意":59.8,"自在感":24.5},"茅台":{"希望感":203.3,"谢意":182.7,"钦慕感":174.1,"信任感":168.5,"启迪感":162.0,"依赖感":143.6,"释放感":143.2,"惊讶":130.5,"爱意":104.8,"自我实现感":97.3,"自在感":75.4,"快乐":50.2},"蒙牛":{"谢意":183.0,"希望感":119.3,"惊讶":105.2,"信任感":105.1,"启迪感":105.1,"释放感":102.7,"依赖感":102.3,"钦慕感":98.1,"快乐":98.0,"自我实现感":97.4,"爱意":85.1,"自在感":58.0},"雪花":{"自我实现感":238.8,"启迪感":238.7,"钦慕感":185.7,"希望感":176.5,"依赖感":157.2,"释放感":130.3,"爱意":100.3,"信任感":81.2,"惊讶":79.2,"快乐":76.1,"谢意":72.2,"自在感":8.0},"青岛啤酒":{"爱意":144.6,"依赖感":129.1,"快乐":96.8,"释放感":91.0,"希望感":88.9,"启迪感":87.5,"惊讶":87.1,"钦慕感":65.6,"信任感":56.5,"谢意":55.1,"自我实现感":49.4,"自在感":40.7},"飞鹤":{"谢意":442.9,"信任感":396.4,"爱意":298.2,"自在感":173.9,"希望感":87.0,"释放感":59.1,"惊讶":47.1,"依赖感":40.6,"钦慕感":39.4,"自我实现感":34.7,"启迪感":22.0,"快乐":21.4},"麦当劳":{"惊讶":163.7,"钦慕感":140.1,"依赖感":109.9,"快乐":108.4,"谢意":95.1,"启迪感":92.8,"希望感":84.5,"释放感":74.7,"自我实现感":51.7,"爱意":48.6,"信任感":32.4,"自在感":16.0}};
+
+// 赛道分组（横轴品牌顺序）
+const TRACKS = [
+  { name: "食品", brands: ["山姆会员商店", "乐事", "麦当劳", "旺旺", "卫龙"] },
+  { name: "饮料", brands: ["可口可乐", "农夫山泉", "星巴克", "元气森林", "三得利"] },
+  { name: "酒水", brands: ["茅台", "五粮液", "青岛啤酒", "雪花", "RIO"] },
+  { name: "乳制品", brands: ["飞鹤", "伊利", "蒙牛", "安佳", "a2"] },
+];
+
+// 每个赛道的情绪按「赛道内所有品牌的该情绪 TGI 均值」排序，取 Top10
+const ALL_EMOTIONS = ["快乐","爱意","惊讶","希望感","信任感","释放感","依赖感","谢意","钦慕感","自我实现感","自在感","启迪感"];
+
+function getTrackTopEmotions(brands, topN) {
+  const scores = {};
+  ALL_EMOTIONS.forEach(e => {
+    const vals = brands.map(b => (TGI_DATA[b] && TGI_DATA[b][e]) ? TGI_DATA[b][e] : 80);
+    scores[e] = vals.reduce((a, v) => a + v, 0) / vals.length;
+  });
+  return Object.entries(scores).sort((a, b) => b[1] - a[1]).slice(0, topN).map(x => x[0]);
+}
+
+function tgiStyle(v) {
+  if (v >= 350) return { bg: '#4c1d95', text: '#f5f3ff' };
+  if (v >= 250) return { bg: '#7c3aed', text: '#fff' };
+  if (v >= 200) return { bg: '#4f46e5', text: '#fff' };
+  if (v >= 170) return { bg: '#1d4ed8', text: '#fff' };
+  if (v >= 140) return { bg: '#0369a1', text: '#e0f2fe' };
+  if (v >= 120) return { bg: '#065f46', text: '#a7f3d0' };
+  if (v >= 100) return { bg: '#1e3a2f', text: '#6ee7b7' };
+  if (v >= 80)  return { bg: '#1e2130', text: '#6b7280' };
+  return            { bg: '#14161f', text: '#4b5563' };
+}
+
+// Legend
+const lb = document.getElementById('legendBar');
+[55, 75, 90, 108, 125, 148, 175, 220, 290].forEach(v => {
+  const d = document.createElement('div');
+  const s = tgiStyle(v);
+  d.style.background = s.bg;
+  lb.appendChild(d);
+});
+
+const container = document.getElementById('charts');
+
+TRACKS.forEach(track => {
+  const topEmos = getTrackTopEmotions(track.brands, 10);
+
+  const section = document.createElement('div');
+  section.className = 'section';
+
+  const stitle = document.createElement('div');
+  stitle.className = 'section-title';
+  stitle.textContent = track.name + ' 赛道';
+  section.appendChild(stitle);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'heatmap-wrap';
+
+  const table = document.createElement('table');
+
+  // thead：横轴 = 品牌
+  const thead = document.createElement('thead');
+  const hr = document.createElement('tr');
+  const th0 = document.createElement('th');
+  th0.className = 'emo-col';
+  th0.textContent = '情绪';
+  hr.appendChild(th0);
+  track.brands.forEach(brand => {
+    const th = document.createElement('th');
+    th.className = 'brand-th';
+    th.textContent = brand;
+    hr.appendChild(th);
+  });
+  thead.appendChild(hr);
+  table.appendChild(thead);
+
+  // tbody：纵轴 = 情绪（赛道 top10）
+  const tbody = document.createElement('tbody');
+  topEmos.forEach(emo => {
+    const tr = document.createElement('tr');
+    const tdEmo = document.createElement('td');
+    tdEmo.className = 'emo-cell';
+    tdEmo.textContent = emo;
+    tr.appendChild(tdEmo);
+
+    track.brands.forEach(brand => {
+      const tdCell = document.createElement('td');
+      const v = (TGI_DATA[brand] && TGI_DATA[brand][emo]) ? TGI_DATA[brand][emo] : 80;
+      const s = tgiStyle(v);
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.style.background = s.bg;
+      cell.style.color = s.text;
+      cell.textContent = Math.round(v);
+      cell.title = `${brand} · ${emo}\nTGI = ${v}`;
+      tdCell.appendChild(cell);
+      tr.appendChild(tdCell);
+    });
+
+    tbody.appendChild(tr);
+  });
+
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  section.appendChild(wrap);
+  container.appendChild(section);
+});
+</script>
+</body>
+</html>
